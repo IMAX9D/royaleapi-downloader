@@ -292,7 +292,8 @@ class ConfigStorageTests(unittest.TestCase):
                     load_config(path)
             path.write_text('output_dir="data"\n[rate_limit]\nrequests_per_second=1')
             cfg = load_config(path)
-            self.assertEqual(cfg.output_dir, str(Path(tmp) / 'data'))
+            # Windows runners may expose TEMP through an 8.3 path alias.
+            self.assertEqual(cfg.output_dir, str((Path(tmp) / 'data').resolve()))
             with self.assertRaises(FileNotFoundError):
                 load_config(Path(tmp) / 'missing.toml')
 
