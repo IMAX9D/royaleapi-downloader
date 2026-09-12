@@ -1,0 +1,6 @@
+# 每行一个代理，格式：http://user:pass@host:port 或 http://host:port
+# # 开头为注释。留空（无有效行）= 直连单 IP 保守限速模式。
+# 例：
+# http://user:pass@1.2.3.4:8080
+# http://5.6.7.8:3128
+# http://9.10.11.12:8000

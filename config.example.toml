@@ -1,0 +1,86 @@
+# RoyaleAPI 对局 JSON 并行爬虫 —— 示例配置
+# 复制为 config.toml 后按需修改。
+
+base_url = "https://royaleapi.com"
+
+# --- 底层 HTTP 与 Cloudflare 绕过 ---
+# backend: "patchright"   独立浏览器 profile，适合 Cloudflare 会话；
+#          "curl_cffi"    用 TLS 指纹伪装；
+#          "flaresolverr" 用无头浏览器自动解 Cloudflare 挑战（需 Docker）。
+backend = "curl_cffi"
+flaresolverr_url = "http://localhost:8191"   # backend=flaresolverr 时的服务地址
+impersonate = "chrome"         # curl_cffi 的浏览器指纹目标
+browser_profile_dir = "data/browser_profile"
+browser_headless = false
+list_browser_headless = false
+# /data/replay 没有独立 API key 参数；站点策略可能要求登录 Cookie。
+# 当前 session_curl 生产路径通过 ruyi_auth_map_file 为每条 lane 绑定独立会话。
+
+global_concurrency = 8         # 全局同时在飞请求上限
+queue_capacity = 2000          # 内存有界任务队列
+claim_batch_size = 500         # 每次从 SQLite 领取的任务数
+persistent_retry_delay = 300.0 # 一轮重试耗尽后的重新入队延迟
+list_requests_per_second = 0.3 # 每个列表浏览器出口的独立速率
+list_proxy_urls = []           # 可增加多个独立 Patchright 列表出口/profile
+list_pause_free_memory_gb = 8.0  # 低于此值不领取新列表/不开新 profile
+list_resume_free_memory_gb = 10.0 # 滞回恢复线，避免 8GB 附近反复启停
+list_memory_check_interval = 2.0  # 主机可用物理内存采样间隔（秒）
+replay_global_requests_per_second = 0.3 # 单登录会话全局回放速率
+# ruyi_auth_map_file = "data/auth_sessions/active_map.json"
+require_complete_decks = false
+request_timeout = 20.0
+connect_timeout = 10.0
+output_dir = "data"
+db_path = "data/progress.sqlite3"
+# 可选：每次启动自动导入已拥有的 battle_tag，防止重建进度库后重复下载。
+# excluded_battles_manifest = "D:/AI_data/.../combined-current.jsonl"
+# min_battle_timestamp = 1785801600 # 仅采集此Unix秒时间之后的对局
+# list_refresh_epoch = "round-20260826" # 新一轮刷新玩家首页
+# quality_monitor_state_file = "D:/AI_data/.../collection-monitor/state.json"
+# seeds_file = "seeds.txt"     # 每行一个玩家 tag 或完整 URL
+
+# --- schema-5 authoritative native replay corpus（启用时四项一起配置）---
+# authoritative_target = 100000
+# authoritative_output_dir = "D:/AI_data/cr-native-core/expert-v1/authoritative-fresh-schema5"
+# authoritative_upgrade_manifest = "D:/AI_data/cr-native-core/expert-v1/training-dataset/version-window-20260804/accepted-cycle-clean.jsonl"
+# authoritative_native_contract = "D:/AI_data/cr-native-core/expert-v1/contracts/native-ingest-v150535029.json"
+# authoritative_game_version = "15.535.29"
+# authoritative target 只统计 frozen contract + native-static gate accepted
+# 的唯一 battle_tag；legacy output_dir、旧100k文件数和普通 detail done 均不计数。
+
+# --- 两级流水线 ---
+# 第一级：由玩家 tag 抓"对局列表页"（服务端渲染 HTML）。
+# 第二级：从列表页 HTML 里解析每场对局的 replay 参数，自动请求 /data/replay，
+#         并把返回的 HTML 解析成结构化 JSON（card_plays / elixir_stats / ...）。
+list_endpoint_template = "{base}/player/{tag}/battles"
+save_lists = true              # 是否也保存列表页原始 HTML
+discover_players = true        # 雪球式发现：从每场对局提取双方玩家 tag 自动入队
+max_battles = 2000000          # 抓满 N 场后自动停止（None=不限）
+max_pages_per_player = 20      # 每个玩家最多翻多少页对局（每页约 25 场，走 history 翻页）
+
+[rate_limit]
+requests_per_second = 1.0      # 单 IP 持续速率（保守值，防封）
+burst = 2
+jitter = 0.4
+
+[retry]
+max_retries = 6
+base_delay = 1.0
+max_delay = 120.0
+backoff_factor = 2.0
+jitter = 0.5
+
+[proxy]
+enabled = true
+# 代理列表（也可直接写在 proxies.txt，每行一个，二者会自动合并去重）
+proxies = []
+proxies_file = "proxies.txt"
+#   - "http://user:pass@1.2.3.4:8080"
+#   - "http://5.6.7.8:3128"
+health_check_url = "https://royaleapi.com/"
+health_check_interval = 60.0
+health_check_timeout = 10.0
+cooldown_429 = 60.0
+cooldown_403 = 300.0
+cooldown_error = 30.0
+max_consecutive_failures = 5

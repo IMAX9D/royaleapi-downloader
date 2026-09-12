@@ -1,0 +1,7 @@
+// 种子文件示例：每行一个玩家 tag 或完整 URL；// 或 ; 开头为注释
+// 玩家 tag（# 是 tag 的一部分，会自动套用 config.toml 里的 list_endpoint_template）：
+#8PGLYJ2U
+#2LQ2U0YQ
+
+// 或完整 URL（当作详情任务直接抓取，不套模板）：
+// https://royaleapi.com/player/8PGLYJ2U/battles

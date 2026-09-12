@@ -1,0 +1,7 @@
+curl_cffi>=0.7
+patchright>=1.52
+PyYAML>=6.0
+ruyiPage[async]>=1.2.62
+selectolax>=0.3
+# playwright 仅 capture.py 抓包脚本需要；纯批量抓取（curl_cffi）不需要
+playwright>=1.40
