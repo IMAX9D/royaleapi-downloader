@@ -2,6 +2,17 @@
 
 RoyaleAPI 对局回放批量下载器。将玩家对局列表和回放事件合并为结构化 JSON，支持 SQLite 断点续传、跨玩家去重、固定赛季采集、历史高手玩家池持续采集和离线数据校验。
 
+## 第一次看这个仓库
+
+普通下载从下面的“快速开始”进入，只需准备配置和玩家种子，运行 `python -m crawler.main`。长期采集使用 `crawler.expert_continuous`，见[持续运行指南](docs/CONTINUOUS.md)。
+
+**为什么有这么多文件？** 除了请求和解析，仓库还包含断点续传、去重、筛选、会话管理、监测、离线测试，以及早期部署和数据迁移工具。它们分模块实现，使用时无需逐个运行。
+
+- [源码文件逐项说明](crawler/README.md)：按下载核心、持续采集、会话、高级工具和测试分类。
+- [根目录与配置文件说明](docs/REPOSITORY_MAP.md)：每个配置、启动文件和文档的用途。
+- 想读实现，先看 `main.py → crawler.py → client.py / parsers.py → queue.py / storage.py`。
+- `authoritative_*` 面向外部 native 数据校验与迁移；`production`、`supervisor`、`watchdog` 属于旧部署或高级运维，普通使用者可先跳过。
+
 ## 工作方式
 
 ```text
@@ -67,7 +78,9 @@ SessionCurl 还需要代理与本地 Cookie 映射，见[配置与会话](docs/C
 
 见[持续采集运行指南](docs/CONTINUOUS.md)和[更新记录](CHANGELOG.md)。示例只配置一个本地代理入口，不包含可用节点或账号。
 
-## 目录
+## 核心目录速览
+
+完整文件说明见 [crawler 文件导航](crawler/README.md)，GitHub 打开源码目录时也会显示该导航。
 
 | 路径 | 用途 |
 | --- | --- |
