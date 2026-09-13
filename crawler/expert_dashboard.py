@@ -1,3 +1,7 @@
+# 用途：持续采集的本机只读网页面板。
+# 分类：会话、观测与诊断；使用：这是持续运行指南使用的面板
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Read-only localhost monitor for the current continuous expert dataset."""
 import argparse
 import json

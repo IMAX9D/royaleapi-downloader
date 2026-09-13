@@ -1,3 +1,7 @@
+# 用途：构建独立批次和赛季输出目录，提供只读状态查询。
+# 分类：玩家发现、批次与持续采集；使用：新建批次；通常由 main 调用
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Isolated fresh collection campaigns and genuinely read-only status."""
 from __future__ import annotations
 

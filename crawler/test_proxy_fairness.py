@@ -1,3 +1,7 @@
+# 用途：同出口会话公平轮转及共享限速。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 import asyncio
 import json
 import tempfile

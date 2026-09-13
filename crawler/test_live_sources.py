@@ -1,3 +1,7 @@
+# 用途：来源刷新、重访、种子热加载和加速时间测试。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Mock network + accelerated clock tests for unattended source freshness."""
 from __future__ import annotations
 

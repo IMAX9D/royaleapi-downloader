@@ -1,3 +1,7 @@
+# 用途：在进程内刷新榜单、种子和已有玩家的新对局。
+# 分类：玩家发现、批次与持续采集；使用：启用动态来源时
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """In-process source refresh using the existing crawler's fetch/queue budget."""
 from __future__ import annotations
 

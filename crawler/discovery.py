@@ -1,3 +1,7 @@
+# 用途：规范列表 URL、计算页面指纹、决定是否继续发现或回填。
+# 分类：玩家发现、批次与持续采集；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Novelty-guided navigation, not a promise to know unseen page contents."""
 from __future__ import annotations
 

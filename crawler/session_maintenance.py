@@ -1,3 +1,7 @@
+# 用途：回放认证失败后，限制并发和超时地尝试恢复会话。
+# 分类：会话、观测与诊断；使用：持续入口可选启用；不是额外的定时监控进程
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Bounded session repair, triggered by replay authentication failures."""
 from __future__ import annotations
 

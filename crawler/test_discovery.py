@@ -1,3 +1,7 @@
+# 用途：页面去重、历史导航、重叠窗口和公平调度。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Offline duplicate-navigation regressions; no production URLs are requested."""
 from __future__ import annotations
 

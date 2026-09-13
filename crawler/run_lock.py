@@ -1,3 +1,7 @@
+# 用途：运行锁，阻止重复进程同时使用同一采集目录。
+# 分类：下载核心；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """OS-owned run locks; no stale PID guesses and no automatic process killing."""
 from __future__ import annotations
 

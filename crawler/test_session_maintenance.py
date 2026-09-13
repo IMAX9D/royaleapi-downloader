@@ -1,3 +1,7 @@
+# 用途：恢复后的状态发布、Cookie 更新与429冷却保留。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 import asyncio
 import unittest
 from pathlib import Path

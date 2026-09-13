@@ -1,3 +1,7 @@
+# 用途：验证辅助的页面限制与模拟浏览器行为。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 import importlib.util
 import unittest
 import shutil,json,subprocess

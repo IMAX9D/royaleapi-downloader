@@ -1,3 +1,7 @@
+# 用途：从已有清单导入对局 ID，防止重复下载。
+# 分类：玩家发现、批次与持续采集；使用：复用旧库排除信息
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Import battle tags from a training union manifest into crawler exclusions."""
 
 from __future__ import annotations

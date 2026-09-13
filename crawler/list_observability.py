@@ -1,3 +1,7 @@
+# 用途：列表页面缓存、请求延迟和通道统计。
+# 分类：会话、观测与诊断；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Content-addressed list-page cache and per-list-lane telemetry."""
 from __future__ import annotations
 

@@ -1,3 +1,7 @@
+# 用途：持续采集入口：已核验玩家池、历史回填、新对局刷新和冻结扩容。
+# 分类：玩家发现、批次与持续采集；使用：长期采集入口
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Continuous August-to-present collection from an expanding verified expert pool."""
 from __future__ import annotations
 

@@ -1,3 +1,7 @@
+# 用途：离线升级回放 schema，并按外部 native contract 检查字段和准入条件。
+# 分类：高级数据校验；使用：了解目标格式与 contract
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Authoritative replay schema upgrades and native-static eligibility gates.
 
 This module is deliberately offline.  It never calls RoyaleAPI or libg: it

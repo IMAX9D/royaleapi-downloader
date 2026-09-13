@@ -1,3 +1,7 @@
+# 用途：配置、存储、事务恢复与队列规模回归。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Offline correctness, recovery and scaling regressions; never use production data."""
 from __future__ import annotations
 

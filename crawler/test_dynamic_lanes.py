@@ -1,3 +1,7 @@
+# 用途：节点列表去重与同站回放样例选择。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 import json,tempfile,unittest
 from pathlib import Path
 from .dynamic_lanes import all_configured_nodes,newest_replay_url

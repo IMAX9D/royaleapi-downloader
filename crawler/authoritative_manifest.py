@@ -1,3 +1,7 @@
+# 用途：只读整理旧数据升级需要的列表和回放依赖。
+# 分类：高级数据校验；使用：已有旧语料
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Read-only preparation of legacy authoritative-upgrade dependencies."""
 from __future__ import annotations
 

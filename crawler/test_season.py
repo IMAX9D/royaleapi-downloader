@@ -1,3 +1,7 @@
+# 用途：名单资格、赛季边界与历史回填。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Closed-season regression tests: synthetic network/data, no live requests."""
 from __future__ import annotations
 

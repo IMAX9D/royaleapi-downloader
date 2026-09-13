@@ -1,3 +1,7 @@
+# 用途：检测可用内存，按暂停和恢复阈值保护采集。
+# 分类：下载核心；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Low-overhead resource guards used by the long-running collector."""
 from __future__ import annotations
 

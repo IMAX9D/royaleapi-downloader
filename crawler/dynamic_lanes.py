@@ -1,3 +1,7 @@
+# 用途：原动态线路编排及共享辅助函数。
+# 分类：仍被调用的线路辅助模块；使用：动态管理默认关闭；辅助函数仍被其他模块使用
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Manage all existing sessions and continuously test all user provider nodes."""
 import asyncio,json,os,subprocess,sys,time
 from pathlib import Path

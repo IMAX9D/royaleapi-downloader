@@ -1,3 +1,7 @@
+# 用途：Windows 下 curl_cffi 异步选择器的兼容性处理。
+# 分类：下载核心；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """curl_cffi Windows 异步选择器的窄范围兼容修复。
 
 curl_cffi 0.16.x 在连接重置/超时时有两个竞态：

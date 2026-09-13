@@ -1,3 +1,7 @@
+# 用途：导入有排名来源和时间边界的名单，校验玩家资格。
+# 分类：玩家发现、批次与持续采集；使用：固定赛季或历史高手名单
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Closed-season ranked cohorts. Missing ranks never turn into random seeds.
 
 Only parses data; never evaluates leaderboard JavaScript or starts a browser.

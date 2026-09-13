@@ -1,3 +1,7 @@
+# 用途：按预设端口管理 Mihomo 入口并分配出口。
+# 分类：仍被调用的线路辅助模块；使用：需要本地 Mihomo 配置
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Mihomo 多入口管理：确保服务运行，并按真实出口去重分配 26 条 lane。"""
 from __future__ import annotations
 

@@ -1,3 +1,7 @@
+# 用途：队列表索引、调度优先级和事务计数的增量迁移。
+# 分类：下载核心；使用：内部；不是手动初始化脚本
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Additive queue indexes and transactional counters for large task stores."""
 from __future__ import annotations
 

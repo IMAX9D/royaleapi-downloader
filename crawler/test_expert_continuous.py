@@ -1,3 +1,7 @@
+# 用途：高手池、持续筛选、历史游标和客户端恢复。
+# 分类：离线测试；使用：测试使用合成数据或模拟对象，不参与生产下载。
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Continuous expert admission, backfill and recovery tests; no live traffic."""
 import asyncio
 import dataclasses

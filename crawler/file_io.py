@@ -1,3 +1,7 @@
+# 用途：有界磁盘工作线程，避免文件写入阻塞网络任务。
+# 分类：下载核心；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Bounded serial disk worker; cancellation never interrupts a file write."""
 from __future__ import annotations
 

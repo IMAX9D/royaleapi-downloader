@@ -1,3 +1,7 @@
+# 用途：保存历史排名证据、候选玩家和已核验成员，限制玩家池规模。
+# 分类：玩家发现、批次与持续采集；使用：持续高手池模式内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Persistent evidence-backed expert membership, bounded independently of tasks."""
 from __future__ import annotations
 

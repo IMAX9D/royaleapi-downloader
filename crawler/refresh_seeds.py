@@ -1,3 +1,7 @@
+# 用途：从当前榜单生成带来源记录的玩家种子。
+# 分类：玩家发现、批次与持续采集；使用：手动准备或更新种子
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Build a fresh, auditable player frontier from current RoyaleAPI leaderboards."""
 from __future__ import annotations
 

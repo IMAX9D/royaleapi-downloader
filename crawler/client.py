@@ -1,3 +1,7 @@
+# 用途：网络后端：curl_cffi、Patchright、RuyiPage、SessionCurl 与 FlareSolverr。
+# 分类：下载核心；使用：浏览器和 HTTP 实现
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """HTTP 客户端：传输无关的 Fetcher 抽象 + curl_cffi 实现。
 
 为什么用 curl_cffi：它能伪装真实浏览器的 TLS/JA3/JA4/HTTP2 指纹，

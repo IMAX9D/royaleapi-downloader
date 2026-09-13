@@ -1,3 +1,7 @@
+# 用途：持久保存来源的到期时间、重访和退避状态。
+# 分类：玩家发现、批次与持续采集；使用：内部
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """Persistent bounded source scheduling; executed only on the SQLite worker."""
 from __future__ import annotations
 

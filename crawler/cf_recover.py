@@ -1,3 +1,7 @@
+# 用途：浏览器验证的有界尝试和单通道恢复辅助。
+# 分类：会话、观测与诊断；使用：不保证挑战通过；不能用尝试计数证明自动成功
+# 相关文件与阅读顺序：见同目录 README.md。
+
 """单 lane Cloudflare 后台恢复器：有头 RuyiPage 自动点击并验收。"""
 from __future__ import annotations
 
