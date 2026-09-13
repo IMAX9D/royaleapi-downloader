@@ -3,10 +3,10 @@
 
 base_url = "https://royaleapi.com"
 
-# --- 底层 HTTP 与 Cloudflare 绕过 ---
+# --- 网络后端与浏览器会话 ---
 # backend: "patchright"   独立浏览器 profile，适合 Cloudflare 会话；
-#          "curl_cffi"    用 TLS 指纹伪装；
-#          "flaresolverr" 用无头浏览器自动解 Cloudflare 挑战（需 Docker）。
+#          "curl_cffi"    使用浏览器 TLS 特征；
+#          "flaresolverr" 外部浏览器服务（需自行安装，不保证通过站点验证）。
 backend = "curl_cffi"
 flaresolverr_url = "http://localhost:8191"   # backend=flaresolverr 时的服务地址
 impersonate = "chrome"         # curl_cffi 的浏览器指纹目标
@@ -33,17 +33,17 @@ connect_timeout = 10.0
 output_dir = "data"
 db_path = "data/progress.sqlite3"
 # 可选：每次启动自动导入已拥有的 battle_tag，防止重建进度库后重复下载。
-# excluded_battles_manifest = "D:/AI_data/.../combined-current.jsonl"
+# excluded_battles_manifest = "data/exclusions/previous.jsonl"
 # min_battle_timestamp = 1785801600 # 仅采集此Unix秒时间之后的对局
 # list_refresh_epoch = "round-20260826" # 新一轮刷新玩家首页
-# quality_monitor_state_file = "D:/AI_data/.../collection-monitor/state.json"
+# quality_monitor_state_file = "data/collection-monitor/state.json"
 # seeds_file = "seeds.txt"     # 每行一个玩家 tag 或完整 URL
 
 # --- schema-5 authoritative native replay corpus（启用时四项一起配置）---
 # authoritative_target = 100000
-# authoritative_output_dir = "D:/AI_data/cr-native-core/expert-v1/authoritative-fresh-schema5"
-# authoritative_upgrade_manifest = "D:/AI_data/cr-native-core/expert-v1/training-dataset/version-window-20260804/accepted-cycle-clean.jsonl"
-# authoritative_native_contract = "D:/AI_data/cr-native-core/expert-v1/contracts/native-ingest-v150535029.json"
+# authoritative_output_dir = "data/authoritative"
+# authoritative_upgrade_manifest = "data/contracts/accepted.jsonl"
+# authoritative_native_contract = "data/contracts/native-ingest.json"
 # authoritative_game_version = "15.535.29"
 # authoritative target 只统计 frozen contract + native-static gate accepted
 # 的唯一 battle_tag；legacy output_dir、旧100k文件数和普通 detail done 均不计数。
@@ -75,8 +75,8 @@ enabled = true
 # 代理列表（也可直接写在 proxies.txt，每行一个，二者会自动合并去重）
 proxies = []
 proxies_file = "proxies.txt"
-#   - "http://user:pass@1.2.3.4:8080"
-#   - "http://5.6.7.8:3128"
+#   - "http://USER:PASSWORD@192.0.2.1:8080"
+#   - "http://192.0.2.2:3128"
 health_check_url = "https://royaleapi.com/"
 health_check_interval = 60.0
 health_check_timeout = 10.0

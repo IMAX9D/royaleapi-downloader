@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Mapping, Optional
@@ -162,6 +163,7 @@ class PatchrightFetcher(Fetcher):
         self._pw_lock = asyncio.Lock()
         self._states_lock = asyncio.Lock()
         self._states: dict[Optional[str], dict] = {}
+        self._warmup_slots = asyncio.Semaphore(2)
 
     async def _playwright(self):
         async with self._pw_lock:
@@ -178,6 +180,40 @@ class PatchrightFetcher(Fetcher):
         root = Path(self.cfg.browser_profile_dir)
         label = hashlib.sha256(proxy_url.encode("utf-8")).hexdigest()[:16]
         return str(root.parent / f"{root.name}_lanes" / label)
+
+    async def _restore_session_cookies(self, context, proxy_url):
+        # Session cookies are not necessarily persisted by Chromium on exit.
+        # Restore the same lane's exported login before navigating, so a
+        # process restart does not leave browser and curl with different auth.
+        if self.cfg.backend != 'session_curl' or not proxy_url or not self.cfg.ruyi_auth_map_file:
+            return
+        mapping = json.loads(Path(self.cfg.ruyi_auth_map_file).read_text(encoding='utf-8'))
+        if proxy_url not in mapping:
+            return
+        profile = Path(mapping[proxy_url])
+        path = profile.parent / (profile.name.removesuffix('-profile') + '.json')
+        payload = json.loads(path.read_text(encoding='utf-8'))
+        from urllib.parse import urlparse
+        host = urlparse(self.cfg.base_url).hostname
+        rows = []
+        for row in payload.get('cookies',[]):
+            # These were exported from Firefox. Keep Chromium's own browser
+            # verification cookies instead of overwriting them across engines.
+            if row.get('name') in ('cf_clearance','__cf_bm'):
+                continue
+            domain = str(row.get('domain') or host)
+            if domain.lstrip('.') != host:
+                continue
+            item = {'name':row['name'],'value':row['value'],'domain':domain,'path':row.get('path') or '/',
+                    'secure':bool(row.get('secure',True)),'httpOnly':bool(row.get('httpOnly',False))}
+            expiry = row.get('expires',row.get('expiry'))
+            if isinstance(expiry,(float,int)) and expiry > 0:
+                item['expires'] = float(expiry)
+            if row.get('sameSite') in ('Strict','Lax','None'):
+                item['sameSite'] = row['sameSite']
+            rows.append(item)
+        if rows:
+            await context.add_cookies(rows)
 
     async def _ensure(self, proxy_url: Optional[str]):
         async with self._states_lock:
@@ -201,16 +237,29 @@ class PatchrightFetcher(Fetcher):
                     "viewport": {"width": 1366, "height": 900},
                     "args": ["--disable-blink-features=AutomationControlled"],
                 }
+                if self.cfg.backend == 'session_curl' and not self.cfg.browser_headless:
+                    kwargs['args'].append('--start-minimized')
                 if proxy_url:
                     kwargs["proxy"] = {"server": proxy_url}
                 context = await pw.chromium.launch_persistent_context(**kwargs)
                 pages = context.pages
                 state["context"] = context
                 state["page"] = pages[0] if pages else await context.new_page()
-                await self._warm_up(state["page"])
+                try:
+                    await self._restore_session_cookies(context, proxy_url)
+                    await self._warm_up(state["page"])
+                except BaseException:
+                    state['context']=state['page']=None
+                    try:await asyncio.wait_for(context.close(),10)
+                    except Exception:pass
+                    raise
         return state
 
     async def _warm_up(self, page) -> None:
+        async with self._warmup_slots:
+            await self._warm_up_page(page)
+
+    async def _warm_up_page(self, page) -> None:
         """页面导航到首页，触发 Cloudflare 挑战自动重新解决（刷新 cf_clearance）。"""
         try:
             await page.goto(self.cfg.base_url, wait_until="domcontentloaded", timeout=60000)
@@ -221,6 +270,11 @@ class PatchrightFetcher(Fetcher):
                     content = ""
                 head = content[:4000]
                 if not any(m in head for m in ("Just a moment", "请稍候", "正在安全验证")):
+                    # Keep the verified browser origin/cookies while unloading
+                    # the homepage's ads, media and long-running scripts.
+                    if self.cfg.backend == 'session_curl':
+                        await page.goto(self.cfg.base_url.rstrip('/')+'/robots.txt',
+                                        wait_until='domcontentloaded',timeout=20000)
                     return
                 # Turnstile iframe 内部尺寸偶尔不可读；从父页面点击 iframe 左侧 checkbox。
                 try:
@@ -248,15 +302,23 @@ class PatchrightFetcher(Fetcher):
         )
 
     async def fetch(self, proxy_url: Optional[str], url: str) -> FetchResult:
-        state = await self._ensure(proxy_url)
+        try:
+            state = await asyncio.wait_for(self._ensure(proxy_url), self.cfg.request_timeout + 120)
+        except asyncio.TimeoutError as exc:
+            raise FetcherError('Patchright initialization deadline exceeded') from exc
         page = state["page"]
-        js = """async (url) => {
-            const r = await fetch(url, {credentials:'include',
+        js = """async ([url, timeoutMs, referrer]) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+            const r = await fetch(url, {credentials:'include', referrer,
+                signal: controller.signal,
                 headers:{'Accept':'application/json, text/plain, */*','X-Requested-With':'XMLHttpRequest'}});
             const t = await r.text();
             const h = {};
             r.headers.forEach((v,k) => h[k]=v);
             return {status: r.status, text: t, url: r.url, headers: h};
+            } finally { clearTimeout(timer); }
         }"""
         # 同一个浏览器 profile 串行请求；不同代理/profile 之间仍可并发。
         async with state["request_lock"]:
@@ -267,7 +329,21 @@ class PatchrightFetcher(Fetcher):
             state["last_request_at"] = asyncio.get_running_loop().time()
             for attempt in range(2):
                 try:
-                    result = await page.evaluate(js, url)
+                    result = await asyncio.wait_for(
+                        page.evaluate(js, [url, int(self.cfg.request_timeout * 1000), self.cfg.base_url.rstrip('/')+'/']),
+                        timeout=self.cfg.request_timeout + 5,
+                    )
+                except asyncio.TimeoutError as e:
+                    # A hung browser evaluation must release the profile and
+                    # its request lock rather than occupy a worker forever.
+                    context = state.get('context')
+                    state['context'] = state['page'] = None
+                    if context is not None:
+                        try:
+                            await asyncio.wait_for(context.close(), 10)
+                        except Exception:
+                            pass
+                    raise FetcherError('Patchright request deadline exceeded') from e
                 except Exception as e:  # noqa: BLE001 - 页面导航中断等
                     message = str(e).lower()
                     if any(x in message for x in (
@@ -546,6 +622,13 @@ class SessionCurlFetcher(Fetcher):
         self._sessions: dict[str, object] = {}
         mapping = json.loads(Path(cfg.ruyi_auth_map_file).read_text(encoding="utf-8"))
         self._cookies: dict[str, dict[str, str]] = {}
+        self._cookie_files: dict[str, Path] = {}
+        self._cookie_stamps: dict[str, tuple[int, int]] = {}
+        self._cookie_rows = {}
+        self._persist_locks = {}
+        self._transport_meta = {}
+        self._retired_sessions = []
+        self._cookie_poll = 0.0
         for proxy, profile_value in mapping.items():
             profile = Path(profile_value)
             name = profile.name.removesuffix("-profile")
@@ -556,19 +639,85 @@ class SessionCurlFetcher(Fetcher):
             self._cookies[str(proxy)] = {
                 row["name"]: row["value"] for row in payload.get("cookies", [])
             }
+            self._cookie_rows[str(proxy)] = payload.get('cookies',[])
+            self._transport_meta[str(proxy)] = {k:payload[k] for k in ('http_impersonate','http_user_agent') if payload.get(k)}
+            self._cookie_files[str(proxy)] = cookie_file
+            stat = cookie_file.stat()
+            self._cookie_stamps[str(proxy)] = (stat.st_mtime_ns, stat.st_size)
+
+    def _reload_cookies(self):
+        # Refresh externally renewed login files without restarting the run.
+        # No cookie values are logged; malformed replacements fail closed.
+        if time.monotonic() < self._cookie_poll:
+            return
+        self._cookie_poll = time.monotonic() + 30
+        for proxy, path in self._cookie_files.items():
+            stat = path.stat()
+            stamp = (stat.st_mtime_ns, stat.st_size)
+            if stamp == self._cookie_stamps[proxy]:
+                continue
+            payload = json.loads(path.read_text(encoding='utf-8'))
+            rows = payload.get('cookies', [])
+            cookies = {row['name']:row['value'] for row in rows}
+            if not cookies:
+                raise FetcherError('updated session file contains no cookies')
+            self._cookies[proxy] = cookies
+            if not hasattr(self,'_cookie_rows'):
+                self._cookie_rows = {}
+            self._cookie_rows[proxy] = rows
+            if not hasattr(self,'_transport_meta'):self._transport_meta={}
+            metadata={k:payload[k] for k in ('http_impersonate','http_user_agent') if payload.get(k)}
+            if metadata != self._transport_meta.get(proxy,{}):
+                old=self._sessions.pop(proxy,None)
+                if old is not None:
+                    self._retired_sessions.append(old)
+            self._transport_meta[proxy]=metadata
+            session = self._sessions.get(proxy)
+            if session is not None:
+                session.cookies.clear()
+                session.cookies.update(self._cookie_jar(rows))
+            self._cookie_stamps[proxy] = stamp
+            log.info('Reloaded a renewed local login session')
+
+    def _cookie_jar(self, rows):
+        from urllib.parse import urlparse
+        jar = self._cr.Cookies()
+        for row in rows:
+            jar.set(row['name'],row['value'],domain=row.get('domain') or urlparse(self.cfg.base_url).hostname,
+                    path=row.get('path') or '/',secure=bool(row.get('secure',True)))
+        return jar
+
+    async def _persist_authenticated_session(self, proxy, session):
+        from .storage import Storage
+        lock = self._persist_locks.setdefault(proxy,asyncio.Lock())
+        async with lock:
+            rows = [{'name':c.name,'value':c.value,'domain':c.domain,'path':c.path,
+                     'secure':c.secure,'httpOnly':c.has_nonstandard_attr('HttpOnly'),
+                     'expires':c.expires if c.expires is not None else -1} for c in session.cookies.jar]
+            identity = lambda values: sorted((r['name'],r.get('domain',''),r.get('path','/'),r['value']) for r in values)
+            if identity(rows) == identity(self._cookie_rows.get(proxy,[])):
+                return
+            path = self._cookie_files[proxy]
+            await asyncio.to_thread(Storage.atomic_text,path,json.dumps({'cookies':rows,'updated_at':time.time(),
+                **getattr(self,'_transport_meta',{}).get(proxy,{})}))
+            self._cookie_rows[proxy] = rows
+            self._cookies[proxy] = {r['name']:r['value'] for r in rows}
+            stat = path.stat()
+            self._cookie_stamps[proxy] = (stat.st_mtime_ns,stat.st_size)
 
     def _session_for(self, proxy_url: Optional[str]):
         if not proxy_url or proxy_url not in self._cookies:
             raise FetcherError(f"没有为代理绑定独立会话: {proxy_url}")
         if proxy_url not in self._sessions:
             proxies = {"http": proxy_url, "https": proxy_url}
+            transport=self._transport_meta.get(proxy_url,{})
             self._sessions[proxy_url] = self._cr.AsyncSession(
-                impersonate=self.cfg.impersonate,
-                cookies=self._cookies[proxy_url],
+                impersonate=transport.get('http_impersonate',self.cfg.impersonate),
+                cookies=self._cookie_jar(self._cookie_rows[proxy_url]),
                 proxies=proxies,
                 timeout=self.cfg.request_timeout,
                 headers={
-                    "User-Agent": self.cfg.user_agent,
+                    "User-Agent": transport.get('http_user_agent',self.cfg.user_agent),
                     "Accept": "application/json, text/plain, */*",
                     "Referer": self.cfg.referer,
                     "X-Requested-With": "XMLHttpRequest",
@@ -577,11 +726,19 @@ class SessionCurlFetcher(Fetcher):
         return self._sessions[proxy_url]
 
     async def fetch(self, proxy_url: Optional[str], url: str) -> FetchResult:
+        self._reload_cookies()
         session = self._session_for(proxy_url)
         try:
             response = await session.get(url, allow_redirects=True)
         except Exception as exc:
             raise FetcherError(f"SessionCurl: {type(exc).__name__}: {exc}") from exc
+        if response.status_code == 200 and '/data/replay' in url:
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = None
+            if isinstance(payload,dict) and payload.get('success') is True:
+                await self._persist_authenticated_session(proxy_url,session)
         return FetchResult(
             str(response.url), response.status_code, response.text, dict(response.headers)
         )
@@ -594,12 +751,83 @@ class SessionCurlFetcher(Fetcher):
             return False
 
     async def aclose(self) -> None:
-        for session in self._sessions.values():
+        for session in [*self._sessions.values(),*getattr(self,'_retired_sessions',[])]:
             try:
                 await session.close()
             except Exception:
                 pass
         self._sessions.clear()
+        self._retired_sessions=[]
+
+
+class BrowserSessionRecovery(Fetcher):
+    """Recover replay authentication through the matching logged-in browser.
+
+    HTTP 429 is returned unchanged. Only explicit login/challenge failures
+    use the browser; the caller has already reserved the replay rate budget.
+    """
+    def __init__(self, http, browser):
+        self.http, self.browser = http, browser
+        self.recoveries = 0
+        self._lock = asyncio.Lock()
+
+    @staticmethod
+    def needs_login(result):
+        if result.status_code == 403:
+            return True
+        if result.status_code != 200:
+            return False
+        try:
+            payload = result.json()
+        except ValueError:
+            return False
+        return isinstance(payload,dict) and payload.get('success') is False and 'requires login' in str(payload.get('html','')).lower()
+
+    async def fetch(self, proxy_url, url):
+        result = await self.http.fetch(proxy_url,url)
+        if '/data/replay' not in url or not self.needs_login(result):
+            return result
+        async with self._lock:
+            recovered = await self.browser.fetch(proxy_url,url)
+            try:
+                valid = recovered.status_code == 200 and recovered.json().get('success') is True
+            except (ValueError,AttributeError):
+                valid = False
+            if valid:
+                state = self.browser._states.get(proxy_url,{})
+                context = state.get('context')
+                if context is not None:
+                    cookies = await asyncio.wait_for(context.cookies([self.http.cfg.base_url]),10)
+                    page=state.get('page')
+                    user_agent=await asyncio.wait_for(page.evaluate('navigator.userAgent'),10) if page is not None else self.browser.cfg.user_agent
+                    transport={'http_impersonate':'chrome','http_user_agent':user_agent}
+                    values = {row['name']:row['value'] for row in cookies}
+                    if values:
+                        session = self.http._sessions.get(proxy_url)
+                        if self.http._transport_meta.get(proxy_url,{})!=transport:
+                            session=self.http._sessions.pop(proxy_url,None)
+                            if session is not None:self.http._retired_sessions.append(session)
+                            session=None
+                        self.http._transport_meta[proxy_url]=transport
+                        self.http._cookies[proxy_url] = values
+                        self.http._cookie_rows[proxy_url] = cookies
+                        if session is not None:
+                            session.cookies.clear()
+                            session.cookies.update(self.http._cookie_jar(cookies))
+                        path = self.http._cookie_files.get(proxy_url)
+                        if path is not None:
+                            from .storage import Storage
+                            await asyncio.to_thread(Storage.atomic_text,path,json.dumps({'cookies':cookies,'updated_at':time.time(),**transport}))
+                        self.recoveries += 1
+                        log.info('Recovered replay through its logged-in browser; refreshed HTTP session')
+            return recovered
+
+    async def check(self, proxy_url, url):
+        return await self.http.check(proxy_url,url)
+
+    async def aclose(self):
+        # Crawler owns and closes the browser separately.
+        await self.http.aclose()
 
 
 class FlareSolverrFetcher(Fetcher):

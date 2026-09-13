@@ -37,3 +37,17 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Private runtime exports and subscription snapshots
+*.local.json
+*.private.json
+*.private.yaml
+*.private.yml
+private-subscriptions/
+settings.json
+settings.*.json
+!settings.example.json
+!settings.*.example.json
+*.login-status.json
+*.lock
+*.jsonl

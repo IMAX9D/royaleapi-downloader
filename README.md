@@ -1,6 +1,6 @@
 # RoyaleAPI Downloader
 
-RoyaleAPI 对局回放批量下载器。将玩家对局列表和回放事件合并为结构化 JSON，支持 SQLite 断点续传、跨玩家去重、固定赛季采集和离线数据校验。
+RoyaleAPI 对局回放批量下载器。将玩家对局列表和回放事件合并为结构化 JSON，支持 SQLite 断点续传、跨玩家去重、固定赛季采集、历史高手玩家池持续采集和离线数据校验。
 
 ## 工作方式
 
@@ -59,6 +59,14 @@ SessionCurl 还需要代理与本地 Cookie 映射，见[配置与会话](docs/C
 
 见[批次与赛季](docs/CAMPAIGNS.md)。
 
+## 持续采集与监测面板
+
+`crawler.expert_continuous` 支持从指定时间持续回填历史对局并刷新新对局。可冻结已核验的玩家池，按实际出口共享速率预算，并在重启时恢复计数和未到期冷却。历史页与首页公平调度，避免回填任务长期等待。
+
+列表浏览器有请求截止时间、内存保护和受限的初始化并发；回放客户端支持 Cookie 热加载。可选的内置会话维护最多同时恢复两个会话，需要人工登录或验证时会在面板提示。
+
+见[持续采集运行指南](docs/CONTINUOUS.md)和[更新记录](CHANGELOG.md)。示例只配置一个本地代理入口，不包含可用节点或账号。
+
 ## 目录
 
 | 路径 | 用途 |
@@ -68,6 +76,9 @@ SessionCurl 还需要代理与本地 Cookie 映射，见[配置与会话](docs/C
 | `crawler/client.py` | 网络及浏览器后端 |
 | `crawler/queue.py` | SQLite 队列、事务与索引 outbox |
 | `crawler/season.py` | 固定赛季名单导入与校验 |
+| `crawler/expert_continuous.py`、`expert_pool.py` | 历史高手池、持续回填与新对局刷新 |
+| `crawler/session_maintenance.py` | 有界会话恢复与真实回放检查 |
+| `crawler/expert_dashboard.py` | 本机只读监测面板 |
 | `crawler/test_*.py`、`crawler/selftest.py` | 无网络测试 |
 | `data/` | 本地回放、数据库、浏览器会话；不提交 |
 
@@ -81,8 +92,8 @@ python -m pytest crawler -q
 python -m crawler.main --selftest
 ```
 
-本次整理前的本地检查：62 项测试及 6 个子测试通过，内置无网络自检通过。发布快照会重新执行检查；这些结果不代表多日真实网络稳定性验证。
+2026-09-12 发布检查：99 项离线测试通过。测试使用合成数据与模拟网络，不代表持续 24 小时或多日真实网络稳定性验收。
 
-已知问题包括浏览器列表请求缺少显式截止时间、SessionCurl 不热加载 Cookie 文件、任务重试耗尽后需要人工处理。详细说明见[架构与稳定性](docs/ARCHITECTURE.md)。
+吞吐取决于站点响应、允许的请求速率、可用会话和每页新增对局数。每日 30 万场是采集目标，尚未完成连续 24 小时验收；瞬时速率或短窗口外推不能当作达标。详细说明见[架构与稳定性](docs/ARCHITECTURE.md)。
 
 本仓库只发布源码、合成测试和示例配置，不含采集数据、登录信息、代理订阅、模型及原本地运维历史。数据采集及后续使用须遵守来源站点的访问规则。

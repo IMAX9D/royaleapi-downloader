@@ -1,0 +1,29 @@
+{
+  "base_config": "config.toml",
+  "output_dir": "data/continuous",
+  "initial_roster": "data/rosters/season-2026-08.json",
+  "start_timestamp": 1785747600,
+  "expert_target": 10000,
+  "expand_player_pool": false,
+  "workers": 4,
+  "list_workers": 1,
+  "replay_proxy_urls": [
+    "http://127.0.0.1:18080"
+  ],
+  "list_proxy_urls": [
+    "http://127.0.0.1:18080"
+  ],
+  "rate_groups": {
+    "http://127.0.0.1:18080": "exit-01"
+  },
+  "global_replay_rate": 0.15,
+  "maximum_replay_rate": 0.15,
+  "detail_backlog_high": 2000,
+  "detail_backlog_low": 1000,
+  "save_lists": false,
+  "auto_session_recovery": false,
+  "browser_recovery_enabled": false,
+  "dynamic_lanes": false,
+  "recover_all_sessions": false,
+  "daily_target": 300000
+}

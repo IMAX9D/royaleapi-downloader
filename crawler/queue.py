@@ -911,18 +911,21 @@ class _SQLiteTaskStore(SourceStoreMixin):
         remaining = limit - len(rows)
         if not remaining:
             return rows
-        regular = self._ready_rows((2, 3), remaining)
+        roots = self._ready_rows((2,), remaining)
+        history = self._ready_rows((3,), remaining)
         overlap = self._ready_rows((4,), remaining)
         cursor = int(self.conn.execute('SELECT cursor FROM discovery_scheduler WHERE id=1').fetchone()[0])
-        fresh_i = overlap_i = 0
+        root_i = history_i = overlap_i = 0
         for _ in range(remaining):
             prefer_overlap = cursor % 5 == 4
-            if overlap_i < len(overlap) and (prefer_overlap or fresh_i >= len(regular)):
+            prefer_history = cursor % 5 in (1, 3)
+            if overlap_i < len(overlap) and (prefer_overlap or (root_i>=len(roots) and history_i>=len(history))):
                 rows.append(overlap[overlap_i])
                 overlap_i += 1
-            elif fresh_i < len(regular):
-                rows.append(regular[fresh_i])
-                fresh_i += 1
+            elif history_i<len(history) and (prefer_history or root_i>=len(roots)):
+                rows.append(history[history_i]);history_i+=1
+            elif root_i<len(roots):
+                rows.append(roots[root_i]);root_i+=1
             else:
                 break
             cursor += 1

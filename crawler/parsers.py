@@ -532,12 +532,19 @@ def parse_next_battles_page(html: str, base: str) -> Optional[str]:
     翻页机制：/player/{tag}/battles 是第一页，下一页是
     /player/{tag}/battles/history?before={毫秒时间戳}；最后一页的下一页是 disabled。
     """
-    for m in re.finditer(r'<a[^>]*href="([^"]*history\?before=[^"]*)"[^>]*>', html):
-        if "disabled" in m.group(0):
-            continue
-        href = m.group(1).rstrip("&")
-        return href if href.startswith("http") else base.rstrip("/") + href
-    return None
+    from urllib.parse import urljoin
+    candidates=[]
+    for node in HTMLParser(html).css('a[href]'):
+        href=node.attributes.get('href','')
+        if 'history?before=' not in href or 'disabled' in node.attributes.get('class','').split():continue
+        if node.css_first('.angle.left.icon') is not None:continue
+        candidate=urljoin(base.rstrip('/')+'/',href.rstrip('&'))
+        if node.css_first('.angle.right.icon') is not None or 'next' in node.attributes.get('rel','').split():
+            return candidate
+        candidates.append(candidate)
+    candidates=list(dict.fromkeys(candidates))
+    if len(candidates)>1:raise ValueError('ambiguous history pagination direction')
+    return candidates[0] if candidates else None
 
 
 _PLAYER_HREF_RE = re.compile(r'href="/player/([A-Za-z0-9]{3,})"')

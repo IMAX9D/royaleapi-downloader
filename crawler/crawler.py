@@ -499,7 +499,7 @@ class Crawler:
         fetchers = [self.fetcher]
         if self.list_fetcher is not None and self.list_fetcher is not self.fetcher:
             fetchers.append(self.list_fetcher)
-        results = await asyncio.gather(*(item.aclose() for item in fetchers), return_exceptions=True)
+        results = await asyncio.gather(*(asyncio.wait_for(item.aclose(), 30) for item in fetchers), return_exceptions=True)
         for result in results:
             if isinstance(result, BaseException):
                 log.error('关闭下载后端失败，请检查残留会话: %s', result)

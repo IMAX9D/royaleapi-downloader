@@ -37,10 +37,14 @@ class ProxyState:
     errors: int = 0
     auth_failures: int = 0
     latency_ema: float = 0.0
+    enabled: bool = True
+    disabled_reason: Optional[str] = None
+    last_selected: int = 0
+    rate_limit_until: float = 0.0
 
     @property
     def available_now(self) -> bool:
-        return self.healthy and time.monotonic() >= self.cooldown_until
+        return self.enabled and self.healthy and time.monotonic() >= self.cooldown_until
 
     @property
     def label(self) -> str:
@@ -51,6 +55,8 @@ class ProxyPool:
     def __init__(self, cfg: ProxyPoolConfig, rate_cfg: RateLimitConfig):
         self.cfg = cfg
         self._lock = asyncio.Lock()
+        self._selection_sequence = 0
+        self.on_session_failure = None
         self.states: list[ProxyState] = []
         for p in self._load_proxies(cfg):
             self.states.append(
@@ -92,13 +98,26 @@ class ProxyPool:
     def size(self) -> int:
         return len(self.states)
 
+    def _rank_available(self) -> list[ProxyState]:
+        candidates = [s for s in self.states if s.available_now]
+        # Read each shared bucket once: refilling separately for each session
+        # creates artificial token differences and defeats the fairness tie-break.
+        tokens = {id(s.bucket): s.bucket for s in candidates}
+        available = {key: bucket.available for key, bucket in tokens.items()}
+        return sorted(candidates, key=lambda s: (available[id(s.bucket)], -s.last_selected), reverse=True)
+
+    def _selected(self, state: ProxyState) -> ProxyState:
+        self._selection_sequence += 1
+        state.last_selected = self._selection_sequence
+        return state
+
     async def pick(self) -> ProxyState:
         """选择当前最空闲且可用的代理；若全部不可用则等待。"""
         while True:
             async with self._lock:
-                candidates = [s for s in self.states if s.available_now]
+                candidates = self._rank_available()
                 if candidates:
-                    return max(candidates, key=lambda s: s.bucket.available)
+                    return self._selected(candidates[0])
             await asyncio.sleep(0.5)
 
     async def acquire(self) -> ProxyState:
@@ -113,11 +132,10 @@ class ProxyPool:
             selected: ProxyState | None = None
             delay = 0.5
             async with self._lock:
-                candidates = [state for state in self.states if state.available_now]
-                candidates.sort(key=lambda state: state.bucket.available, reverse=True)
+                candidates = self._rank_available()
                 for state in candidates:
                     if await state.bucket.try_acquire():
-                        selected = state
+                        selected = self._selected(state)
                         break
                 if candidates and selected is None:
                     delay = min(state.bucket.wait_seconds for state in candidates)
@@ -128,7 +146,11 @@ class ProxyPool:
             await asyncio.sleep(min(0.5, max(0.01, delay)))
 
     def _cooldown(self, s: ProxyState, seconds: float) -> None:
-        s.cooldown_until = max(s.cooldown_until, time.monotonic() + seconds)
+        until=time.monotonic()+seconds
+        s.cooldown_until=max(s.cooldown_until,until)
+        for peer in self.states:
+            if peer.bucket is s.bucket:
+                peer.cooldown_until=max(peer.cooldown_until,until)
 
     def report_success(self, s: ProxyState, latency: float) -> None:
         s.consecutive_failures = 0
@@ -140,6 +162,7 @@ class ProxyPool:
 
     def report_rate_limited(self, s: ProxyState, retry_after: Optional[float] = None) -> None:
         delay = retry_after if retry_after is not None else self.cfg.cooldown_429
+        s.rate_limit_until=max(s.rate_limit_until,time.monotonic()+delay)
         self._cooldown(s, delay)
         s.fail += 1
         s.rate_limited += 1
@@ -151,7 +174,9 @@ class ProxyPool:
         s.fail += 1
         s.forbidden += 1
         s.consecutive_failures += 1
-        log.warning("proxy %s 疑似被封 IP(403)，冷却 %.1fs", s.label, self.cfg.cooldown_403)
+        log.warning("proxy %s 返回 HTTP 403，冷却 %.1fs", s.label, self.cfg.cooldown_403)
+        if self.on_session_failure is not None:
+            self.on_session_failure(s,'challenge')
 
     def report_error(self, s: ProxyState) -> None:
         self._cooldown(s, self.cfg.cooldown_error)
@@ -167,10 +192,12 @@ class ProxyPool:
         s.fail += 1
         s.auth_failures += 1
         log.warning("proxy %s 的 RoyaleAPI 登录会话失效/未登录", s.label)
+        if self.on_session_failure is not None:
+            self.on_session_failure(s,'login_required')
 
     async def _probe(self, check: Callable[[ProxyState], Awaitable[bool]]) -> None:
         """仅探测不健康代理；健康请求不额外绕过正常限速预算。"""
-        for s in (x for x in self.states if not x.healthy):
+        for s in (x for x in self.states if x.enabled and not x.healthy):
             try:
                 s.healthy = await check(s)
                 if s.healthy:
@@ -192,9 +219,12 @@ class ProxyPool:
         return [
             {
                 "proxy": s.label,
+                "enabled": s.enabled,
+                "disabled_reason": s.disabled_reason,
                 "healthy": s.healthy,
                 "available": s.available_now,
                 "cooldown_left": max(0.0, s.cooldown_until - now),
+                "rate_limit_left": max(0.0,s.rate_limit_until-now),
                 "success": s.success,
                 "fail": s.fail,
                 "rate_limited": s.rate_limited,

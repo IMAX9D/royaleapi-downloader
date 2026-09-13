@@ -11,6 +11,39 @@ from ruyipage.aio import launch
 
 from .config import load_config
 
+FRAME_RECT_SCRIPT = 'const r=this.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height};'
+
+
+async def try_challenge_once(page) -> bool:
+    """One bounded attempt using the existing RuyiPage recovery strategy.
+
+    The caller owns the browser, permission boundary, retry budget and final
+    application-level verification. This function does not claim success.
+    """
+    from urllib.parse import urlparse
+    current = urlparse(await page.get_url())
+    if current.scheme != 'https' or current.hostname not in ('royaleapi.com','www.royaleapi.com'):
+        raise ValueError('CF recovery is restricted to the expected RoyaleAPI page')
+    frames = await page.eles('css:iframe')
+    for frame in frames:
+        src = await frame.get_src()
+        if not src or urlparse(src).hostname != 'challenges.cloudflare.com':
+            continue
+        rect = await frame.run_js(
+            FRAME_RECT_SCRIPT,
+            as_expr=False,
+        )
+        if not rect or rect.get('w',0)<=0 or rect.get('h',0)<=0:
+            continue
+        x=int(rect['x']+min(35,max(5,rect['w']/4)))
+        y=int(rect['y']+rect['h']/2)
+        await page.actions.move_to((x,y),duration=450)
+        await page.actions.click()
+        await page.actions.perform()
+        return True
+    await page.handle_cloudflare_challenge(timeout=20,check_interval=2)
+    return False
+
 
 async def recover(port: int) -> bool:
     cfg = load_config("config.toml")
@@ -41,28 +74,7 @@ async def recover(port: int) -> bool:
         js = """function(url){return fetch(url,{credentials:'include'}).then(
             async r=>({status:r.status,text:await r.text()}));}"""
         for _ in range(3):
-            frames = await page.eles("css:iframe")
-            clicked = False
-            for frame in frames:
-                src = await frame.get_src()
-                if not src or not any(x in src for x in ("cloudflare", "turnstile", "cf-chl")):
-                    continue
-                rect = await frame.run_js(
-                    "function(){const r=this.getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height};}"
-                )
-                if not rect or rect.get("w", 0) <= 0 or rect.get("h", 0) <= 0:
-                    continue
-                # checkbox 位于 iframe 左侧；使用父页面视口绝对坐标点击。
-                x = int(rect["x"] + min(35, max(5, rect["w"] / 4)))
-                y = int(rect["y"] + rect["h"] / 2)
-                await page.actions.move_to((x, y), duration=450)
-                await page.actions.click()
-                await page.actions.perform()
-                clicked = True
-                break
-            if not clicked:
-                # 框架原生方法作为兜底，但缩短等待，避免后台恢复长期占用。
-                await page.handle_cloudflare_challenge(timeout=20, check_interval=2)
+            await asyncio.wait_for(try_challenge_once(page),30)
             await page.wait(8)
             result = await page.run_js(js, test_url, timeout=40)
             if int(result.get("status", 0)) == 200 and "replay_button" in result.get("text", ""):

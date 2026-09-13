@@ -30,9 +30,9 @@ SessionCurl 读取 `ruyi_auth_map_file`。在本地创建 `data/auth_sessions/ac
 }
 ```
 
-Cookie 名和值必须来自自己的有效会话，上面的占位内容不能用于下载。将映射中的代理加入 `[proxy].proxies`，配置 `backend="session_curl"` 和 `ruyi_auth_map_file="data/auth_sessions/active_map.json"`。列表代理另由 `list_proxy_urls` 指定，代码还包含一个直连列表通道。
+Cookie 名和值必须来自自己的有效会话，上面的占位内容不能用于下载。将映射中的代理加入 `[proxy].proxies`，配置 `backend="session_curl"` 和 `ruyi_auth_map_file="data/auth_sessions/active_map.json"`。列表代理另由 `list_proxy_urls` 指定，通用 CLI 还包含直连列表通道；持续采集入口会按非空的 `list_proxy_urls` 筛选列表通道。
 
-`session_login.py` 是原环境的辅助工具，需要既有 `data/index.jsonl` 回放示例与 RuyiPage 环境，不能当作空白安装的自动登录入口。
+`session_login.py` 需要 RuyiPage 浏览器环境和仓库根目录的 `config.toml`。通过 `--replay-url` 指定当前可用的真实回放地址；未提供时尝试读取本地回放索引。登录状态保存在 `data/auth_sessions/`。持续采集可选的会话维护也使用此目录，详见[运行指南](CONTINUOUS.md)。
 
 ## 先小规模验证
 
@@ -40,6 +40,6 @@ Cookie 名和值必须来自自己的有效会话，上面的占位内容不能�
 
 示例内存阈值为低于 8 GiB 暂停新列表、高于 10 GiB 恢复。内存较小的机器应根据实际情况降低这两个值，并保持恢复阈值大于暂停阈值，否则可能始终无法开始列表工作。
 
-`request_timeout` 当前用于 curl 等后端；它没有覆盖 Patchright 页面内 fetch 的整个调用，这是已记录的稳定性缺口。
+`request_timeout` 用于 HTTP 请求；Patchright 页面内请求使用 AbortController，外层等待也有截止时间。浏览器首次初始化另有额外的时间预算。SessionCurl 会检测 Cookie 文件变化并热加载，浏览器 Cookie 与 HTTP 传输参数仍需保持一致。
 
 高级 authoritative 模式需要外部工程提供冻结 native contract。仓库未附带机器专用的 `config.authoritative.toml` 或任何训练集。
