@@ -59,4 +59,4 @@ python -m crawler.expert_continuous --settings data/continuous/settings.local.js
 
 可选 `session_registry` 指向本地已验证会话登记文件；只有登记为 ready 的会话参与工作。它是高级运维输入，不能仅将状态改为 ready 来代替真实回放验证。默认示例省略它。
 
-旧 `dynamic_lanes`、`expert_supervisor` 和 watchdog 不在默认流程中启用；它们依赖额外的 Mihomo 配置及端口约定。订阅 URL、节点密码、Cookie、账号信息和实际配置不得加入公开仓库。
+旧独立 supervisor 和 watchdog 已移除。保留的 `dynamic_lanes` 提供部分共享辅助函数，其动态管理功能仍默认关闭，依赖额外的 Mihomo 配置及端口约定。订阅 URL、节点密码、Cookie、账号信息和实际配置不得加入公开仓库。

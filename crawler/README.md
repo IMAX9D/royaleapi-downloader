@@ -1,6 +1,6 @@
 # crawler 文件导航
 
-这里同时放了下载核心、持续采集、测试和早期高级运维工具，所以文件数量比单个下载脚本多。普通使用者只需配置并启动入口；其余模块由程序调用。
+这里保留下载核心、持续采集、测试和仍有调用关系的高级辅助模块。旧启动器、独立守护程序、一次性迁移工具及旧桌面面板已清理。普通使用者只需配置并启动入口；其余模块由程序调用。
 
 ## 从哪里开始
 
@@ -63,7 +63,7 @@
 
 “会话恢复成功”表示最终回放检查通过；即使用户手动完成验证，也会出现这个结果。因此不能仅凭 `ready` 或 `cf_attempts` 判断是否无人干预。
 
-## 4. 高级数据校验与迁移
+## 4. 高级数据校验
 
 `authoritative` 是面向外部 native 回放管线的数据格式与准入校验模式，不表示数据获得 RoyaleAPI 官方认证。普通回放下载无需单独运行这些工具；部分校验代码也会被核心模块导入，因此不要直接删除文件。
 
@@ -71,31 +71,23 @@
 | --- | --- | --- |
 | [authoritative.py](authoritative.py) | 离线升级回放 schema，并按外部 native contract 检查字段和准入条件。 | 了解目标格式与 contract |
 | [authoritative_manifest.py](authoritative_manifest.py) | 只读整理旧数据升级需要的列表和回放依赖。 | 已有旧语料 |
-| [authoritative_contract_migration.py](authoritative_contract_migration.py) | 旧 contract 向 v2 迁移，检查前提、备份并调整任务。 | 专用迁移流程；会修改本地状态 |
-| [authoritative_contract_v3_migration.py](authoritative_contract_v3_migration.py) | contract v2 → v3 的计划与应用，保留旧输出并重新排队。 | 应用前停止对应采集；先检查迁移计划 |
 
-## 5. 旧部署与高级运维工具
+## 5. 仍被调用的线路辅助模块
 
-这些工具来自早期部署，保留了专用目录、端口或目标约定。它们不属于默认快速开始流程，也不需要同时启动。当前持续采集直接使用 `expert_continuous`，额外管理程序默认关闭。
+这两个模块仍有调用关系：`dynamic_lanes` 提供会话维护需要的回放地址选择、面板需要的进程检查，并依赖 `lane_manager`。因此暂时保留，动态线路管理仍默认关闭；普通使用者无需单独启动它们。
 
 | 文件 | 作用 | 与默认流程的关系 |
 | --- | --- | --- |
-| [production.py](production.py) | 原通用生产控制器，管理后台启动、停止和状态。 | 旧部署入口 |
-| [authoritative_production.py](authoritative_production.py) | 专用 schema-5 语料的后台控制器。 | 高级模式部署 |
-| [progress_gui.py](progress_gui.py) | 专用 authoritative 采集的 Tkinter 桌面面板。 | 与 expert_dashboard 网页面板不同 |
-| [expert_supervisor.py](expert_supervisor.py) | 持续采集的独立进程监督器。 | 默认不启用 |
 | [lane_manager.py](lane_manager.py) | 按预设端口管理 Mihomo 入口并分配出口。 | 需要本地 Mihomo 配置 |
-| [lane_watchdog.py](lane_watchdog.py) | 旧线路健康巡检与恢复工具。 | 默认不启用 |
 | [dynamic_lanes.py](dynamic_lanes.py) | 原动态线路编排及共享辅助函数。 | 动态管理默认关闭；辅助函数仍被其他模块使用 |
 
-## 6. 测试与性能实验
+## 6. 离线测试
 
 测试使用合成数据、模拟网络或临时数据库，不参与生产下载。运行方式见[项目首页](../README.md#验证与运行边界)。
 
 | 文件 | 覆盖内容 |
 | --- | --- |
 | [selftest.py](selftest.py) | 内置离线自检、模拟 Fetcher 和共享测试样例。 |
-| [benchmark_queue.py](benchmark_queue.py) | 合成队列的只读查询性能实验。 |
 | [test_downloader_refactor.py](test_downloader_refactor.py) | 配置、存储、事务恢复与队列规模回归。 |
 | [test_discovery.py](test_discovery.py) | 页面去重、历史导航、重叠窗口和公平调度。 |
 | [test_live_sources.py](test_live_sources.py) | 来源刷新、重访、种子热加载和加速时间测试。 |
@@ -106,6 +98,5 @@
 | [test_session_login_flow.py](test_session_login_flow.py) | 模拟浏览器中的验证、登录和回放检查流程。 |
 | [test_session_maintenance.py](test_session_maintenance.py) | 恢复后的状态发布、Cookie 更新与429冷却保留。 |
 | [test_dynamic_lanes.py](test_dynamic_lanes.py) | 节点列表去重与同站回放样例选择。 |
-| [test_authoritative_contract_v3_migration.py](test_authoritative_contract_v3_migration.py) | v3 迁移的前提校验、备份与重复执行行为。 |
 
 根目录的配置、启动文件和文档用途见[仓库目录说明](../docs/REPOSITORY_MAP.md)。

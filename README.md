@@ -11,7 +11,7 @@ RoyaleAPI 对局回放批量下载器。将玩家对局列表和回放事件合�
 - [源码文件逐项说明](crawler/README.md)：按下载核心、持续采集、会话、高级工具和测试分类。
 - [根目录与配置文件说明](docs/REPOSITORY_MAP.md)：每个配置、启动文件和文档的用途。
 - 想读实现，先看 `main.py → crawler.py → client.py / parsers.py → queue.py / storage.py`。
-- `authoritative_*` 面向外部 native 数据校验与迁移；`production`、`supervisor`、`watchdog` 属于旧部署或高级运维，普通使用者可先跳过。
+- `authoritative.py` 与 `authoritative_manifest.py` 为外部 native 模式提供数据校验和升级依赖；普通使用者可先跳过。旧生产启动器、独立守护程序和一次性迁移工具已移除。
 
 ## 工作方式
 
@@ -95,7 +95,7 @@ SessionCurl 还需要代理与本地 Cookie 映射，见[配置与会话](docs/C
 | `crawler/test_*.py`、`crawler/selftest.py` | 无网络测试 |
 | `data/` | 本地回放、数据库、浏览器会话；不提交 |
 
-`production.py`、`authoritative_production.py` 和 lane 管理模块保留为高级运维工具，依赖使用者自己的 Mihomo、代理、账号和 native contract 配置。它们不是通用的一键服务，也未接入固定赛季启动命令。
+保留的 lane 管理模块仍提供会话和面板使用的辅助函数，并依赖使用者自己的 Mihomo 环境；默认下载流程不启动动态线路管理。外部 native 校验模式仍需自行准备 contract。
 
 ## 验证与运行边界
 
@@ -105,7 +105,7 @@ python -m pytest crawler -q
 python -m crawler.main --selftest
 ```
 
-2026-09-12 发布检查：99 项离线测试通过。测试使用合成数据与模拟网络，不代表持续 24 小时或多日真实网络稳定性验收。
+仓库精简后：98 项离线测试通过；当前入口导入、文件导航与相对链接检查通过。测试使用合成数据与模拟网络，不代表持续 24 小时或多日真实网络稳定性验收。
 
 吞吐取决于站点响应、允许的请求速率、可用会话和每页新增对局数。每日 30 万场是采集目标，尚未完成连续 24 小时验收；瞬时速率或短窗口外推不能当作达标。详细说明见[架构与稳定性](docs/ARCHITECTURE.md)。
 
